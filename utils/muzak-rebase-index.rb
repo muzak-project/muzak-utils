@@ -3,16 +3,16 @@
 require "muzak"
 require "yaml"
 
-VERSION = 2
+VERSION = 3
 
 def help
   puts <<~EOS
     Usage: #{$PROGRAM_NAME} <directory> [options]
 
     Options:
-      --force       Perform rebase even if <directory> doesn't exist
-      --help        Print this help message
-      --version     Print version information
+      --force, -f       Perform rebase even if <directory> doesn't exist
+      --help, -h        Print this help message
+      --version, -v     Print version information
 
     Arguments:
       <directory>   The new music root
