@@ -1,14 +1,13 @@
 #!/usr/bin/env ruby
 
 require "muzak"
-
-include Muzak::Utils
+require "yaml"
 
 VERSION = 1
 
 def help
   puts <<~EOS
-    Usage: #{$PROGRAM_NAME} <directory>
+    Usage: #{$PROGRAM_NAME} <directory> [options]
     Options:
       --force       Perform rebase even if <directory> doesn't exist
       --help        Print this help message
@@ -73,6 +72,21 @@ index_hash["artists"].each do |_, artist|
       song.instance_variable_set(:@path, song.path.gsub(orig_root, new_root))
     end
   end
+end
+
+Muzak::Playlist.playlist_names.each do |pname|
+  pfile = Muzak::Playlist.path_for(pname)
+
+  puts pfile
+
+  playlist_hash = YAML.load_file(pfile).clone
+
+  playlist_hash["songs"].each do |song|
+    puts orig_root
+    song.instance_variable_set(:@path, song.path.gsub(orig_root, new_root))
+  end
+
+  File.write(pfile, playlist_hash.to_yaml)
 end
 
 File.write(Muzak::INDEX_FILE, Marshal.dump(index_hash))
