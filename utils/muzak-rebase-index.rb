@@ -79,12 +79,13 @@ end
 Muzak::Playlist.playlist_names.each do |pname|
   pfile = Muzak::Playlist.path_for(pname)
 
-  puts pfile
-
   playlist_hash = YAML.load_file(pfile).clone
 
   playlist_hash["songs"].each do |song|
-    puts orig_root
+    if song.path.nil?
+      playlist_hash["songs"].delete(song)
+      next
+    end
     song.instance_variable_set(:@path, song.path.gsub(orig_root, new_root))
   end
 
