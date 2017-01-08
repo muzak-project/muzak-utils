@@ -71,6 +71,8 @@ index_hash["artists"].each do |_, artist|
       song_path.gsub! orig_root, new_root
     end
 
+    album["cover"].gsub! orig_root, new_root if album["cover"]
+
     album["deep-songs"].each do |song|
       # This is bad, but making an exception out of Song#path and adding
       # a writer feels equally bad.
@@ -78,6 +80,8 @@ index_hash["artists"].each do |_, artist|
     end
   end
 end
+
+File.write(Muzak::INDEX_FILE, Marshal.dump(index_hash))
 
 Muzak::Playlist.playlist_names.each do |pname|
   pfile = Muzak::Playlist.path_for(pname)
@@ -94,7 +98,5 @@ Muzak::Playlist.playlist_names.each do |pname|
 
   File.write(pfile, playlist_hash.to_yaml)
 end
-
-File.write(Muzak::INDEX_FILE, Marshal.dump(index_hash))
 
 info "All done."
