@@ -1,5 +1,8 @@
 #!/usr/bin/env ruby
 
+# TODO: All --all option to rebase playlists, update config and change
+# default behavior to just rebasing the index.
+
 require "muzak"
 require "yaml"
 
