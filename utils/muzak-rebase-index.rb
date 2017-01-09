@@ -1,24 +1,32 @@
 #!/usr/bin/env ruby
 
-# TODO: All --all option to rebase playlists, update config and change
-# default behavior to just rebasing the index.
-
 require "muzak"
 require "yaml"
 
-VERSION = 3
+VERSION = 4
+
+OPTS = {
+  force: !!(ARGV.delete("--force") || ARGV.delete("-f")),
+  playlists: !!(ARGV.delete("--playlists") || ARGV.delete("-p")),
+  verbose: !!(ARGV.delete("--verbose") || ARGV.delete("-V")),
+  help: !!(ARGV.delete("--help") || ARGV.delete("-h")),
+  version: !!(ARGV.delete("--version") || ARGV.delete("-v"))
+}
 
 def help
   puts <<~EOS
-    Usage: #{$PROGRAM_NAME} <directory> [options]
+    Usage: #{$PROGRAM_NAME} [options] <old> <new>
 
     Options:
-      --force, -f       Perform rebase even if <directory> doesn't exist
+      --force, -f       Perform rebase even if <new> doesn't exist
+      --playlists, -p   Rebase playlists as well
+      --verbose, -V     Be verbose while rebasing
       --help, -h        Print this help message
       --version, -v     Print version information
 
     Arguments:
-      <directory>   The new music root
+      <old>   The old music tree
+      <new>   The new music tree
   EOS
 
   exit
@@ -31,7 +39,7 @@ def version
 end
 
 def info(msg)
-  puts "[\e[32minfo\e[0m]: #{msg}"
+  puts "[\e[32minfo\e[0m]: #{msg}" if OPTS[:verbose]
 end
 
 def bail(msg)
@@ -40,15 +48,16 @@ def bail(msg)
 end
 
 def force?
-  ARGV.include?("--force") || ARGV.include?("-f")
+  OPTS[:force]
 end
 
-help if ARGV.include?("--help") || ARGV.include?("-h")
-version if ARGV.include?("--version") || ARGV.include?("-v")
+help if OPTS[:help]
+version if OPTS[:version]
 
+old_root = ARGV.shift
 new_root = ARGV.shift
 
-help unless new_root
+help unless old_root && new_root
 
 if !Dir.exist?(new_root) && !force?
   bail "'#{new_root}' doesn't exist or isn't a directory, not continuing without --force."
@@ -56,11 +65,11 @@ end
 
 bail "You don't have an index file." unless File.exist?(Muzak::INDEX_FILE)
 
-info "Replacing '#{Muzak::Config.music}' with '#{new_root}' in your config and index..."
+info "Replacing '#{old_root}' with '#{new_root}' in your index..."
 
 Muzak::Config.music = new_root
 
-orig_root = File.absolute_path(Muzak::Config.music)
+old_root = File.absolute_path(old_root)
 new_root = File.absolute_path(new_root)
 
 index_hash = Marshal.load(File.read Muzak::INDEX_FILE)
@@ -68,35 +77,37 @@ index_hash = Marshal.load(File.read Muzak::INDEX_FILE)
 index_hash["artists"].each do |_, artist|
   artist["albums"].each do |_, album|
     album["songs"].each do |song_path|
-      song_path.gsub! orig_root, new_root
+      song_path.gsub! old_root, new_root
     end
 
-    album["cover"].gsub! orig_root, new_root if album["cover"]
+    album["cover"].gsub! old_root, new_root if album["cover"]
 
     album["deep-songs"].each do |song|
       # This is bad, but making an exception out of Song#path and adding
       # a writer feels equally bad.
-      song.instance_variable_set(:@path, song.path.gsub(orig_root, new_root))
+      song.instance_variable_set(:@path, song.path.gsub(old_root, new_root))
     end
   end
 end
 
 File.write(Muzak::INDEX_FILE, Marshal.dump(index_hash))
 
-Muzak::Playlist.playlist_names.each do |pname|
-  pfile = Muzak::Playlist.path_for(pname)
+if OPTS[:playlists]
+  Muzak::Playlist.playlist_names.each do |pname|
+    pfile = Muzak::Playlist.path_for(pname)
 
-  playlist_hash = YAML.load_file(pfile).clone
+    playlist_hash = YAML.load_file(pfile).clone
 
-  playlist_hash["songs"].each do |song|
-    if song.path.nil?
-      playlist_hash["songs"].delete(song)
-      next
+    playlist_hash["songs"].each do |song|
+      if song.path.nil?
+        playlist_hash["songs"].delete(song)
+        next
+      end
+      song.instance_variable_set(:@path, song.path.gsub(old_root, new_root))
     end
-    song.instance_variable_set(:@path, song.path.gsub(orig_root, new_root))
-  end
 
-  File.write(pfile, playlist_hash.to_yaml)
+    File.write(pfile, playlist_hash.to_yaml)
+  end
 end
 
-info "All done."
+info "all done."
